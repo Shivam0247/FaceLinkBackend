@@ -9,8 +9,10 @@ export function handleStart(roomArr, socket, cb = () => {}, io) {
   // ✅ Check if user is already in a room
   for (let room of roomArr) {
     if (room.p1.id === socket.id || room.p2.id === socket.id) {
-      cb(room.p1.id === socket.id ? "p1" : "p2");
+      const role = room.p1.id === socket.id ? "p1" : "p2";
+      cb(role);
       socket.emit("roomid", room.roomid);
+      socket.emit("role", role); // ✅ emit role on reconnection
       return;
     }
   }
@@ -29,6 +31,10 @@ export function handleStart(roomArr, socket, cb = () => {}, io) {
     io.to(room.p1.id).emit("remote-socket", socket.id);
     io.to(socket.id).emit("remote-socket", room.p1.id);
     io.to(socket.id).emit("roomid", room.roomid);
+
+    // ✅ Emit roles
+    io.to(room.p1.id).emit("role", "p1");
+    io.to(socket.id).emit("role", "p2");
   } else {
     // ❗ No room available, create one
     let roomid = uuidv4();
@@ -41,6 +47,7 @@ export function handleStart(roomArr, socket, cb = () => {}, io) {
     });
     cb("p1");
     socket.emit("roomid", roomid);
+    socket.emit("role", "p1"); // ✅ Emit role
   }
 }
 
@@ -74,8 +81,6 @@ export function handleDisconnect(disconnectedId, roomArr, io) {
       }
 
       room.p1.id = null;
-
-      // ✅ Set available if one player remains
       room.isAvailable = !!room.p2.id;
     } else if (room.p2.id === disconnectedId) {
       if (room.p1.id) {
@@ -88,8 +93,6 @@ export function handleDisconnect(disconnectedId, roomArr, io) {
       }
 
       room.p2.id = null;
-
-      // ✅ Set available if one player remains
       room.isAvailable = !!room.p1.id;
     }
   }
@@ -122,6 +125,9 @@ export function getType(socketId, roomArr) {
   return false;
 }
 
+/**
+ * Tries to pair two solo users from different rooms into one room.
+ */
 function tryToPairRemainingUsers(roomArr, io) {
   const availableRooms = roomArr.filter(
     (room) =>
@@ -149,7 +155,11 @@ function tryToPairRemainingUsers(roomArr, io) {
     io.to(userA).emit("roomid", roomA.roomid);
     io.to(userB).emit("roomid", roomA.roomid);
 
-    // Remove roomB from roomArr
+    // ✅ Emit roles
+    io.to(userA).emit("role", "p1");
+    io.to(userB).emit("role", "p2");
+
+    // Remove roomB
     const indexB = roomArr.indexOf(roomB);
     if (indexB > -1) {
       roomArr.splice(indexB, 1);
