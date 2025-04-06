@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { Server } from "socket.io";
-import { handelStart, handelDisconnect, getType } from "./lib.js";
+import { handleStart, handleDisconnect, getType } from "./lib.js";
 import http from "http";
 
 const app = express();
@@ -12,20 +12,22 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 let online = 0;
 let roomArr = [];
-
 io.on("connection", (socket) => {
   online++;
   io.emit("online", online);
 
   socket.on("start", (cb) => {
-    handelStart(roomArr, socket, cb, io);
+    handleStart(roomArr, socket, cb, io);
     console.log("connection", socket.id);
+    console.log("roomArr", roomArr);
   });
 
   socket.on("disconnect", () => {
     online--;
     io.emit("online", online);
-    handelDisconnect(socket.id, roomArr, io);
+    handleDisconnect(socket.id, roomArr, io);
+    console.log("disconnection");
+    console.log("roomArr", roomArr);
   });
 
   socket.on("ice:send", ({ candidate }) => {
